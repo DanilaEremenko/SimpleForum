@@ -1,14 +1,8 @@
-class ClientInfo():
-    def __init__(self, name, id):
-        self.name = name
-        self.id = id
-
-
 class Message():
-    def __init__(self, text, date, client):
+    def __init__(self, text, date, client_name):
         self.text = text
         self.date = date
-        self.client = client
+        self.client_info = client_name
 
 
 class Topic():
