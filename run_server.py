@@ -21,27 +21,41 @@ def client_processing(client: Client, client_list):
         opcode, data = PacketProcessor.parse_packet(conn.recv(BUFFER_SIZE))
 
         if opcode == Opcodes.OP_MSG:
-            print("MSG from %s: %s" % (client.name, data))
+            print("MSG from %s: %s" % (client.name, data["text"]))
             if not data:
                 client_list.__delitem__(client)
             if data == '':
                 print("empty data")
                 break
 
-            send_packet = PacketProcessor.get_msg_packet(text=data)
+            send_packet = PacketProcessor.get_msg_packet(client_name=client.name, text=data["text"])
             for other_client in client_list:
                 if other_client != client:
+                    print("RESENDING TO %s" % other_client.name)
                     other_client.conn.send(send_packet)
 
         elif opcode == Opcodes.OP_DISC:
             print("DISCONNECTING:Client = %s" % client.name)
             send_packet = PacketProcessor.get_msg_disc()
             conn.send(send_packet)
-            client.conn.close()
             client.is_connected = False
 
         else:
             raise Exception("Undefined opcode = %d" % opcode)
+
+    client.conn.close()
+    print("DISCONNECTED:Client = %s" % client.name)
+
+
+def cmd_processing(client_list):
+    while True:
+        command = input()
+        print("-------------------------")
+        if command == "list":
+            for i, client in enumerate(client_list):
+                print("%d:%s" % (i, client.name))
+
+        print("-------------------------")
 
 
 if __name__ == '__main__':
@@ -54,12 +68,18 @@ if __name__ == '__main__':
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((TCP_IP, TCP_PORT))
     s.listen(1)
+
+    # running cmd thread
+    cmd_thread = Thread(target=cmd_processing, args=(client_list,), daemon=True)
+    cmd_thread.start()
+
     while True:
         # new clients accepting
         conn, addr = s.accept()
         opcode, data = PacketProcessor.parse_packet(conn.recv(BUFFER_SIZE))
         if opcode == Opcodes.OP_MSG:
-            new_client = Client(conn=conn, addr=addr, name=data, thread=None)
+            name = data["client_name"]
+            new_client = Client(conn=conn, addr=addr, name=name, thread=None)
             new_client.thread = Thread(target=client_processing, args=(new_client, client_list), daemon=True)
             client_list.append(new_client)
             new_client.thread.start()
