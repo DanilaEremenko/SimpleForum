@@ -8,4 +8,5 @@ class Message():
 class Topic():
     def __init__(self, title):
         self.title = title
+        self.client_list = []
         self.message_story = []

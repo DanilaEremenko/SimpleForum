@@ -14,9 +14,9 @@ class Client():
         self.thread = thread
 
 
-def remove_client(client, client_list: list):
-    print("DISCONNECTING:Client = %s" % client.name)
-    send_packet = PacketProcessor.get_msg_disc()
+def remove_client(reason, client, client_list: list):
+    print("DISCONNECTING:Client = %s (%s)" % (client.name, reason))
+    send_packet = PacketProcessor.get_disc_packet()
     client.conn.send(send_packet)
     client.is_connected = False
     client_list.remove(client)
@@ -32,7 +32,7 @@ def client_processing(client: Client, client_list, mutex):
         if opcode == Opcodes.OP_MSG:
 
             if not data or data == '':
-                remove_client(client, client_list)
+                remove_client("BAD MESSAGE", client, client_list)
             else:
                 print("--------------\nMSG from %s: %s" % (client.name, data["text"]))
 
@@ -44,9 +44,14 @@ def client_processing(client: Client, client_list, mutex):
                         print("RESENDING TO %s" % other_client.name)
                         other_client.conn.send(send_packet)
                 mutex.release()
+        elif opcode == Opcodes.OP_NEW_TOPIC:
+            print("%s WANT TO CREATE NEW TOPIC %s" % (client.name, data["text"]))
+
+        elif opcode == Opcodes.OP_GET_TOPIC_LIST:
+            print("%s WANT TO GET TOPIC LIST" % (client.name))
 
         elif opcode == Opcodes.OP_DISC:
-            remove_client(client, client_list)
+            remove_client("DISCONNECTION OPCODE == %d" % opcode, client, client_list)
 
         else:
             raise Exception("Undefined opcode = %d" % opcode)
