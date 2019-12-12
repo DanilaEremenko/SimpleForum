@@ -10,3 +10,9 @@ class Topic():
         self.title = title
         self.client_list = []
         self.message_story = []
+
+    def __eq__(self, other):
+        if self.title == other.title:
+            return True
+        else:
+            return False

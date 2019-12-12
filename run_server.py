@@ -1,8 +1,9 @@
 from lib.CommonConstants import BUFFER_SIZE
 import socket
 from lib import PacketProcessor
-from lib import Opcodes
 from threading import Thread, Lock
+from lib.ForumClasses import Topic, Message
+import re
 
 
 class Client():
@@ -12,6 +13,11 @@ class Client():
         self.name = name
         self.is_connected = False
         self.thread = thread
+        self.current_topic = None
+
+
+def debug_print(text):
+    print("DEBUG:%s" % text)
 
 
 def remove_client(reason, client, client_list: list):
@@ -23,20 +29,20 @@ def remove_client(reason, client, client_list: list):
     client.conn.close()
 
 
-def client_processing(client: Client, client_list, mutex):
+def client_processing(client: Client, client_list: list, topic_list: list, mutex):
     client.is_connected = True
     print("New client = %s(%d) accepted" % (client.name, client.conn.fileno()))
     while client.is_connected:
         opcode, data = PacketProcessor.parse_packet(client.conn.recv(BUFFER_SIZE))
 
-        if opcode == Opcodes.OP_MSG:
+        if opcode == PacketProcessor.OP_MSG:
 
             if not data or data == '':
                 remove_client("BAD MESSAGE", client, client_list)
             else:
-                print("--------------\nMSG from %s: %s" % (client.name, data["text"]))
+                print("--------------\nMSG from %s: %s" % (client.name, data["data"]))
 
-                send_packet = PacketProcessor.get_msg_packet(client_name=client.name, text=data["text"])
+                send_packet = PacketProcessor.get_msg_packet(client_name=client.name, text=data["data"])
 
                 mutex.acquire()
                 for other_client in client_list:
@@ -44,13 +50,39 @@ def client_processing(client: Client, client_list, mutex):
                         print("RESENDING TO %s" % other_client.name)
                         other_client.conn.send(send_packet)
                 mutex.release()
-        elif opcode == Opcodes.OP_NEW_TOPIC:
-            print("%s WANT TO CREATE NEW TOPIC %s" % (client.name, data["text"]))
+        elif opcode == PacketProcessor.OP_NEW_TOPIC:
+            title = data["data"]
+            print("%s WANT TO CREATE NEW TOPIC %s" % (client.name, title))
+            topic = Topic(title)
+            if not topic_list.__contains__(topic):
+                print("NEW TOPIC %s ADDED" % title)
+                topic_list.append(topic)
+                send_packet = PacketProcessor.get_msg_packet(client_name="SERVER", text="topic %s created" % title)
+                client.conn.send(send_packet)
 
-        elif opcode == Opcodes.OP_GET_TOPIC_LIST:
+            else:
+                print("CAN'T CREATE TOPIC %s, ALREADY EXIST" % title)
+                send_packet = PacketProcessor.get_msg_packet(client_name="SERVER", text="topic already exist")
+                client.conn.send(send_packet)
+
+        elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
             print("%s WANT TO GET TOPIC LIST" % (client.name))
+            send_packet = PacketProcessor.get_topic_list_packet(topic_list)
+            client.conn.send(send_packet)
 
-        elif opcode == Opcodes.OP_DISC:
+        elif opcode == PacketProcessor.OP_SWITCH_TOPIC:
+            topic_i = data["data"]
+            print("%s WANT TO SWITCH TOPIC TO %d" % (client.name, topic_i))
+            if topic_i < len(topic_list):
+                send_packet = PacketProcessor.get_msg_packet(client_name="SERVER", text="your topic switched")
+                client.current_topic = topic_list[topic_i]
+            else:
+                send_packet = PacketProcessor.get_msg_packet(client_name="SERVER",
+                                                             text="topic_i must be < len(topic_list), but have %d" % topic_i)
+
+            client.conn.send(send_packet)
+
+        elif opcode == PacketProcessor.OP_DISC:
             remove_client("DISCONNECTION OPCODE == %d" % opcode, client, client_list)
 
         else:
@@ -59,19 +91,23 @@ def client_processing(client: Client, client_list, mutex):
     print("DISCONNECTED:Client = %s" % client.name)
 
 
-def cmd_processing(client_list):
+def cmd_processing(client_list, topic_list):
     while True:
-        command = input()
+        command = re.sub(" +", " ", input())
         print("-------------------------")
-        if command == "list":
+        if command == "list client":
             for i, client in enumerate(client_list):
                 print("%d:%s" % (i, client.name))
+        elif command == "list topic":
+            for i, topic in enumerate(topic_list):
+                print("%d:%s" % (i, topic.title))
 
         print("-------------------------")
 
 
 def main():
     client_list = []
+    topic_list = []
 
     TCP_IP = 'localhost'
     TCP_PORT = 5005
@@ -84,17 +120,19 @@ def main():
     mutex = Lock()
 
     # running cmd thread
-    cmd_thread = Thread(target=cmd_processing, args=(client_list,), daemon=True)
+    cmd_thread = Thread(target=cmd_processing, args=(client_list, topic_list), daemon=True)
     cmd_thread.start()
 
     while True:
         # new clients accepting
         conn, addr = s.accept()
         opcode, data = PacketProcessor.parse_packet(conn.recv(BUFFER_SIZE))
-        if opcode == Opcodes.OP_MSG:
+        if opcode == PacketProcessor.OP_MSG:
             name = data["client_name"]
             new_client = Client(conn=conn, addr=addr, name=name, thread=None)
-            new_client.thread = Thread(target=client_processing, args=(new_client, client_list, mutex), daemon=True)
+            new_client.thread = Thread(target=client_processing,
+                                       args=(new_client, client_list, topic_list, mutex),
+                                       daemon=True)
 
             mutex.acquire()
             client_list.append(new_client)
@@ -103,7 +141,7 @@ def main():
             new_client.thread.start()
 
         else:
-            print("opcode = %d (%d awaiting)" % (opcode, Opcodes.OP_MSG))
+            print("opcode = %d (%d awaiting)" % (opcode, PacketProcessor.OP_MSG))
 
 
 if __name__ == '__main__':
