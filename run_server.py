@@ -6,6 +6,46 @@ from lib.ForumClasses import Topic, Message
 import re
 import datetime
 
+# ---------------------------- CMD -----------------------------------
+HELP_SERVER = "--------------------------\n" \
+              "AVAILABLE SERVER COMMANDS:\n" \
+              "list client\n" \
+              "list topic\n" \
+              "list msg topic_i:int\n" \
+              "help\n" \
+              "exit\n" \
+              "--------------------------\n"
+
+
+def cmd_processing(client_list, topic_list):
+    while True:
+        command = re.sub(" +", " ", input())
+        command_splited = command.split()
+        print("-------------------------")
+        if command == "list client":
+            for i, client in enumerate(client_list):
+                print("%d:%s" % (i, client.name))
+
+        elif command == "list topic":
+            for i, topic in enumerate(topic_list):
+                print("%d:%s" % (i, topic.title))
+
+        elif len(command_splited) >= 2 and command_splited[0] == "list msg":  # print last 10 message
+            topic_i = int(command_splited[1])
+            for message in get_last_from_topic_as_str(topic_list, topic_i):
+                print("[%s]:%s:%s\n" % (message.date.strftime("%Y-%m-%d-%H.%M.%S"), message.client_name, message.text))
+
+        elif command == "help":
+            print(HELP_SERVER)
+
+        elif command == "exit":
+            exit_server(client_list)
+
+        else:
+            print("Undefined command = %s. Use help for information")
+
+        print("-------------------------")
+
 
 class Client():
     def __init__(self, conn, addr, name, thread):
@@ -28,6 +68,11 @@ def remove_client(reason, client, client_list: list):
     client.is_connected = False
     client_list.remove(client)
     client.conn.close()
+
+
+def exit_server(client_list):
+    for client in client_list:
+        remove_client(reason="server closed", client=client, client_list=client_list)
 
 
 def client_processing(client: Client, client_list: list, topic_list: list, mutex):
@@ -127,25 +172,6 @@ def get_last_from_topic_as_str(topic_list, topic_i):
             result.append(message)
 
     return result
-
-
-def cmd_processing(client_list, topic_list):
-    while True:
-        command = re.sub(" +", " ", input())
-        command_splited = command.split()
-        print("-------------------------")
-        if command == "list client":
-            for i, client in enumerate(client_list):
-                print("%d:%s" % (i, client.name))
-        elif command == "list topic":
-            for i, topic in enumerate(topic_list):
-                print("%d:%s" % (i, topic.title))
-        elif len(command_splited) >= 2 and command_splited[0] == "get_topic_messages":  # print last 10 message
-            topic_i = int(command_splited[1])
-            for message in get_last_from_topic_as_str(topic_list, topic_i):
-                print("[%s]:%s:%s\n" % (message.date.strftime("%Y-%m-%d-%H.%M.%S"), message.client_name, message.text))
-
-        print("-------------------------")
 
 
 def mock_topics(topic_list):
