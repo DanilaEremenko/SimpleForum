@@ -5,6 +5,16 @@ from threading import Thread
 import re
 import os
 
+# ---------------------------- CMD -----------------------------------
+HELP_CLIENT = "--------------------------\n" \
+              "AVAILABLE CLIENT COMMANDS:\n" \
+              "/put_topic name\n" \
+              "/get_topic_list\n" \
+              "/switch_topic num\n" \
+              "/help\n" \
+              "/exit\n" \
+              "--------------------------\n"
+
 
 def debug_print(text):
     print("DEBUG:%s" % text)
@@ -19,23 +29,26 @@ def write_loop(s, connected, name):
         if text == "":  # don't send empty message
             continue
 
-        elif len(splited_text) >= 2 and splited_text[0] == 'command':  # check commands
-            if splited_text[1] == 'put_topic' and len(splited_text) == 3:
-                send_packet = PacketProcessor.get_new_topic_packet(splited_text[2])
+        elif text[0] == "/":  # check commands
+            if splited_text[0] == '/put_topic' and len(splited_text) == 2:
+                send_packet = PacketProcessor.get_new_topic_packet(splited_text[1])
                 debug_print("NEW TOPIC PACKET SENDING")
 
-            elif splited_text[1] == "get_topic_list":
+            elif splited_text[0] == "/get_topic_list":
                 send_packet = PacketProcessor.get_topic_list_request_packet()
                 debug_print("GET TOPIC LIST PACKET SENDING (OP = %d)" %
                             PacketProcessor.parse_packet(send_packet)[0])
 
-            elif splited_text[1] == "switch_topic" and len(splited_text) == 3:
-                topic_num = int(splited_text[2])
+            elif splited_text[0] == "/switch_topic" and len(splited_text) == 2:
+                topic_num = int(splited_text[1])
                 send_packet = PacketProcessor.get_switch_topic_packet(topic_num=topic_num)
                 debug_print("TRYING TO SWITCH TOPIC TO %d (OP = %d)" %
                             (topic_num, PacketProcessor.parse_packet(send_packet)[0]))
+            elif splited_text[0] == "/help":
+                print(HELP_CLIENT)
+                continue
 
-            elif splited_text[1] == 'exit':
+            elif splited_text[0] == '/exit':
                 send_packet = PacketProcessor.get_disc_packet("EXIT COMMAND GOT")
                 connected = False
                 debug_print("EXIT PACKET SENDING (OP = %d)" %
@@ -68,7 +81,7 @@ def read_loop(s, connected):
 
         elif opcode == PacketProcessor.OP_MSG_LIST:
             for date, client, text in zip(data["data"]["date"], data["data"]["client"], data["data"]["text"]):
-                print("\r[%s]:%s:%s" % (date, client, text), flush=True)
+                print("\r[%s]:%s: %s" % (date, client, text), flush=True)
 
         elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
             print("\r-------- TOPIC LIST FROM SERVER---------")
