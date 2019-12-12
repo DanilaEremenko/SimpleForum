@@ -85,9 +85,12 @@ def read_loop(s, connected):
 
         elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
             print("\r-------- TOPIC LIST FROM SERVER---------")
-            if data["data"]["topic_list"] != "NULL":
-                for i, topic_name in enumerate(data["data"]["topic_list"]):
-                    print("%d:%s" % (i, topic_name))
+            for topic_i, (topic_name, client_list) in \
+                    enumerate(zip(data["data"]["topic_dict"].keys(), data["data"]["topic_dict"].values())):
+                print("%d:%s" % (topic_i, topic_name))
+                for client_i, client in enumerate(client_list):
+                    print("\t%d:%s" % (client_i, client))
+
             print("------------------------------------------")
 
         elif opcode == PacketProcessor.OP_DISC:
