@@ -61,6 +61,10 @@ def read_loop(s, connected):
         if opcode == PacketProcessor.OP_MSG:
             print("\r%s: %s" % (data["client_name"], data["data"]), flush=True)
 
+        elif opcode == PacketProcessor.OP_MSG_LIST:
+            for date, client, text in zip(data["data"]["date"], data["data"]["client"], data["data"]["text"]):
+                print("\r[%s]:%s:%s" % (date, client, text), flush=True)
+
         elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
             print("\r-------- TOPIC LIST FROM SERVER---------")
             if data["data"] != "NULL":
