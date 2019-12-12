@@ -11,7 +11,7 @@ def parse_packet(packet):
         data = json.loads(str(packet[4:].decode(CommonConstants.CODING)))
 
     except:
-        print("BAD JSON OR OPCODE")
+        print("PARSE_PACKET:BAD JSON OR OPCODE")
         opcode = OP_DISC
         data = "DISC"
 
@@ -23,15 +23,23 @@ OP_MSG = 0
 
 
 def get_msg_packet(client_name, text):
-    """
-    opcode |  msg.size | msg.buffer
-    :param text:
-    :return:
-    """
-    json_text = "{\"client_name\":\"%s\",\"data\":\"%s\"}" % (client_name, text)
+    json_text = "{\"data\":{\"client_name\":\"%s\",\"text\":\"%s\"}}" % (client_name, text)
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_MSG,
+                       len(json_text),
+                       json_text.encode())
+
+
+# ----------------------------------------------------------------
+OP_SERVER_MSG = 10
+
+
+def get_server_message_packet(text):
+    json_text = "{\"data\":\"%s\"}" % (text)
+    send_format = "!2H%ds" % len(json_text)
+    return struct.pack(send_format.encode(),
+                       OP_SERVER_MSG,
                        len(json_text),
                        json_text.encode())
 
@@ -122,8 +130,8 @@ def get_switch_topic_packet(topic_num):
 OP_DISC = 5
 
 
-def get_disc_packet():
-    json_text = "{\"data\":\"empty text\"}"
+def get_disc_packet(reason):
+    json_text = "{\"data\":\"%s\"}" % reason
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_DISC,

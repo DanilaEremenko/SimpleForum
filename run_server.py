@@ -23,7 +23,7 @@ def debug_print(text):
 
 def remove_client(reason, client, client_list: list):
     print("DISCONNECTING:Client = %s (%s)" % (client.name, reason))
-    send_packet = PacketProcessor.get_disc_packet()
+    send_packet = PacketProcessor.get_disc_packet(reason)
     client.conn.send(send_packet)
     client.is_connected = False
     client_list.remove(client)
@@ -43,12 +43,12 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
                 break
 
             else:
-                print("--------------\nMSG from %s: %s" % (client.name, data["data"]))
+                print("--------------\nMSG from %s: %s" % (client.name, data["data"]["text"]))
 
                 if client.current_topic is None:
-                    send_packet = PacketProcessor.get_msg_packet(client_name="SERVER", text="NO ONE TOPIC CHOOSED")
+                    send_packet = PacketProcessor.get_server_message_packet(text="NO ONE TOPIC CHOOSED")
                 else:
-                    send_packet = PacketProcessor.get_msg_packet(client_name=client.name, text=data["data"])
+                    send_packet = PacketProcessor.get_msg_packet(client_name=client.name, text=data["data"]["text"])
                     mutex.acquire()
                     for other_client in client.current_topic.client_list:
                         print("RESENDING TO CLIENTS IN %s TOPIC" % client.current_topic.title)
@@ -63,14 +63,15 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
             title = data["data"]
             print("%s WANT TO CREATE NEW TOPIC %s" % (client.name, title))
             topic = Topic(title)
+
             if not topic_list.__contains__(topic):
                 print("NEW TOPIC %s ADDED" % title)
                 topic_list.append(topic)
-                send_packet = PacketProcessor.get_msg_packet(client_name="SERVER", text="topic %s created" % title)
+                send_packet = PacketProcessor.get_server_message_packet(text="topic %s created" % title)
 
             else:
                 print("CAN'T CREATE TOPIC %s, ALREADY EXIST" % title)
-                send_packet = PacketProcessor.get_msg_packet(client_name="SERVER", text="topic already exist")
+                send_packet = PacketProcessor.get_server_message_packet(text="topic already exist")
 
         elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
             print("%s WANT TO GET TOPIC LIST" % (client.name))
@@ -89,12 +90,12 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
                     topic_list[topic_i].client_list.append(client)
                 else:
                     print("SENDING SORRY MESSAGE")
-                    send_packet = PacketProcessor.get_msg_packet(client_name="SERVER",
-                                                                 text="You're trying to connect to your current topic ")
+                    send_packet = PacketProcessor.get_server_message_packet(
+                        text="You're trying to connect to your current topic ")
 
             else:
-                send_packet = PacketProcessor.get_msg_packet(client_name="SERVER",
-                                                             text="topic_i must be < len(topic_list), but have %d" % topic_i)
+                send_packet = PacketProcessor.get_server_message_packet(
+                    text="topic_i must be < len(topic_list), but have %d" % topic_i)
 
 
         elif opcode == PacketProcessor.OP_DISC:
@@ -169,7 +170,7 @@ def main():
         conn, addr = s.accept()
         opcode, data = PacketProcessor.parse_packet(conn.recv(BUFFER_SIZE))
         if opcode == PacketProcessor.OP_MSG:
-            name = data["client_name"]
+            name = data["data"]["client_name"]
             new_client = Client(conn=conn, addr=addr, name=name, thread=None)
             new_client.thread = Thread(target=client_processing,
                                        args=(new_client, client_list, topic_list, mutex),
@@ -183,6 +184,8 @@ def main():
 
         else:
             print("opcode = %d (%d awaiting)" % (opcode, PacketProcessor.OP_MSG))
+            send_message = PacketProcessor.get_disc_packet("NO NAME MESSAGE SENDED")
+            conn.send(send_message)
 
 
 if __name__ == '__main__':
