@@ -5,13 +5,14 @@ from threading import Thread, Lock
 from lib.ForumClasses import Topic, Message
 import re
 import datetime
+import os
 
 # ---------------------------- CMD -----------------------------------
 HELP_SERVER = "--------------------------\n" \
               "AVAILABLE SERVER COMMANDS:\n" \
               "list client\n" \
               "list topic\n" \
-              "list msg topic_i:int\n" \
+              "listmsg topic_i:int\n" \
               "help\n" \
               "exit\n" \
               "--------------------------\n"
@@ -27,10 +28,15 @@ def cmd_processing(client_list, topic_list):
                 print("%d:%s" % (i, client.name))
 
         elif command == "list topic":
-            for i, topic in enumerate(topic_list):
-                print("%d:%s" % (i, topic.title))
+            topic_dict = PacketProcessor.get_topic_dict(topic_list)
+            for topic_i, (topic_name, client_list) in \
+                    enumerate(zip(topic_dict.keys(), topic_dict.values())):
+                print("%d:%s" % (topic_i, topic_name))
+                for client_i, client in enumerate(client_list):
+                    print("\t%d:%s" % (client_i, client))
 
-        elif len(command_splited) >= 2 and command_splited[0] == "list msg":  # print last 10 message
+
+        elif len(command_splited) >= 2 and command_splited[0] == "listmsg":  # print last 10 message
             topic_i = int(command_splited[1])
             for message in get_last_from_topic_as_str(topic_list, topic_i):
                 print("[%s]:%s:%s\n" % (message.date.strftime("%Y-%m-%d-%H.%M.%S"), message.client_name, message.text))
@@ -42,7 +48,7 @@ def cmd_processing(client_list, topic_list):
             exit_server(client_list)
 
         else:
-            print("Undefined command = %s. Use help for information")
+            print("Undefined command = %s. Use help for information" % command)
 
         print("-------------------------")
 
@@ -56,6 +62,9 @@ class Client():
         self.thread = thread
         self.current_topic = None
 
+    def __str__(self):
+        return "%s" % self.name
+
 
 def debug_print(text):
     print("DEBUG:%s" % text)
@@ -67,12 +76,18 @@ def remove_client(reason, client, client_list: list):
     client.conn.send(send_packet)
     client.is_connected = False
     client_list.remove(client)
+    if client.current_topic.client_list is not None and client.current_topic.client_list.__contains__(client):
+        client.current_topic.client_list.remove(client)
     client.conn.close()
 
 
 def exit_server(client_list):
+    print("CLIENTS DELETING")
     for client in client_list:
         remove_client(reason="server closed", client=client, client_list=client_list)
+
+    print("SERVER EXITING")
+    os._exit(0)
 
 
 def client_processing(client: Client, client_list: list, topic_list: list, mutex):

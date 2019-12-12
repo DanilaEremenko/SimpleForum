@@ -97,15 +97,20 @@ def get_topic_list_request_packet():
                        json_text.encode())
 
 
-def get_topic_list_packet(topic_list: list):
-    topic_titles = []
+def get_topic_dict(topic_list: list):
+    topic_dict = {}
     if len(topic_list) != 0:
         for i, topic in enumerate(topic_list):
-            topic_titles.append(topic.title)
-    else:
-        topic_titles = "NULL"
+            client_list = []
+            for j, client in enumerate(topic.client_list):
+                client_list.append(client.name)
+            topic_dict[topic.title] = client_list
+    return topic_dict
 
-    json_text = "{\"data\":{\"topic_list\":%s}}" % re.sub("\'", "\"", (topic_titles).__str__())
+
+def get_topic_list_packet(topic_list: list):
+    topic_dict = get_topic_dict(topic_list)
+    json_text = "{\"data\":{\"topic_dict\":%s}}" % re.sub("\'", "\"", (topic_dict).__str__())
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_GET_TOPIC_LIST,
