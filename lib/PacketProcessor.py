@@ -1,11 +1,10 @@
 from lib import CommonConstants
 import struct
 import json
+import re
+
 
 # ----------------------------------------------------------------
-OP_MSG_LIST = 1  # TODO unused
-
-
 def parse_packet(packet):
     try:
         opcode = struct.unpack("!H", packet[0:2])[0]
@@ -33,6 +32,30 @@ def get_msg_packet(client_name, text):
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_MSG,
+                       len(json_text),
+                       json_text.encode())
+
+
+# ----------------------------------------------------------------
+OP_MSG_LIST = 1  # TODO unused
+
+
+def get_msg_list_packet(message_list):
+    """
+    opcode |  msg.size | msg.buffer
+    :param text:
+    :return:
+    """
+    data = {"client": [], "date": [], "text": []}
+    for message in message_list:
+        data["client"].append(message.client_name)
+        data["date"].append(message.date.strftime("%Y-%m-%d-%H.%M.%S"))
+        data["text"].append(message.text)
+
+    json_text = "{\"data\" : %s}" % re.sub("\'", "\"", (data).__str__())
+    send_format = "!2H%ds" % len(json_text)
+    return struct.pack(send_format.encode(),
+                       OP_MSG_LIST,
                        len(json_text),
                        json_text.encode())
 
@@ -100,7 +123,7 @@ OP_DISC = 5
 
 
 def get_disc_packet():
-    json_text = "{\"text\":\"empty text\"}"
+    json_text = "{\"data\":\"empty text\"}"
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_DISC,

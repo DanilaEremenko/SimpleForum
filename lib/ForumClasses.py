@@ -2,7 +2,7 @@ class Message():
     def __init__(self, text, date, client_name):
         self.text = text
         self.date = date
-        self.client_info = client_name
+        self.client_name = client_name
 
 
 class Topic():
