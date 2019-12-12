@@ -60,10 +60,11 @@ def read_loop(s, connected):
         opcode, data = PacketProcessor.parse_packet(rec_packet)
 
         if opcode == PacketProcessor.OP_MSG:
-            print("\r%s: %s" % (data["data"]["client_name"], data["data"]["text"]), flush=True)
+            print("\r[%s]:%s: %s" % (data["data"]["date"], data["data"]["client_name"], data["data"]["text"]),
+                  flush=True)
 
         elif opcode == PacketProcessor.OP_SERVER_MSG:
-            print("\rSERVER: %s" % (data["data"]), flush=True)
+            print("\rSERVER: %s" % (data["data"]["text"]), flush=True)
 
         elif opcode == PacketProcessor.OP_MSG_LIST:
             for date, client, text in zip(data["data"]["date"], data["data"]["client"], data["data"]["text"]):
@@ -71,13 +72,13 @@ def read_loop(s, connected):
 
         elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
             print("\r-------- TOPIC LIST FROM SERVER---------")
-            if data["data"] != "NULL":
-                for i, topic_name in enumerate(data["data"]):
+            if data["data"]["topic_list"] != "NULL":
+                for i, topic_name in enumerate(data["data"]["topic_list"]):
                     print("%d:%s" % (i, topic_name))
             print("------------------------------------------")
 
         elif opcode == PacketProcessor.OP_DISC:
-            print("RECEIVED OP_DISC FROM SERVER(%s)") % data["data"]
+            print("RECEIVED OP_DISC FROM SERVER(%s)" % data["data"]["reason"])
             connected = False
 
         else:

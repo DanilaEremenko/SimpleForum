@@ -2,6 +2,7 @@ from lib import CommonConstants
 import struct
 import json
 import re
+import datetime
 
 
 # ----------------------------------------------------------------
@@ -13,7 +14,7 @@ def parse_packet(packet):
     except:
         print("PARSE_PACKET:BAD JSON OR OPCODE")
         opcode = OP_DISC
-        data = "DISC"
+        data = {"data": {"reason": "BAD PARSING"}}
 
     return opcode, data
 
@@ -23,7 +24,8 @@ OP_MSG = 0
 
 
 def get_msg_packet(client_name, text):
-    json_text = "{\"data\":{\"client_name\":\"%s\",\"text\":\"%s\"}}" % (client_name, text)
+    json_text = "{\"data\":{\"client_name\":\"%s\",\"text\":\"%s\",\"date\":\"%s\"}}" % (
+        client_name, text, datetime.datetime.now().strftime("%Y-%m-%d-%H.%M.%S"))
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_MSG,
@@ -36,7 +38,7 @@ OP_SERVER_MSG = 10
 
 
 def get_server_message_packet(text):
-    json_text = "{\"data\":\"%s\"}" % (text)
+    json_text = "{\"data\":{\"text\":\"%s\"}}" % (text)
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_SERVER_MSG,
@@ -73,7 +75,7 @@ OP_NEW_TOPIC = 2
 
 
 def get_new_topic_packet(topic_name):
-    json_text = "{\"data\":\"%s\"}" % topic_name
+    json_text = "{\"data\":{\"topic_name\":\"%s\"}}" % topic_name
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_NEW_TOPIC,
@@ -86,7 +88,7 @@ OP_GET_TOPIC_LIST = 4
 
 
 def get_topic_list_request_packet():
-    json_text = "{\"data\":\"empty text\"}"
+    json_text = "{\"data\":{\"empty\":\"empty\"}}"
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_GET_TOPIC_LIST,
@@ -95,17 +97,14 @@ def get_topic_list_request_packet():
 
 
 def get_topic_list_packet(topic_list: list):
+    topic_titles = []
     if len(topic_list) != 0:
-        topic_str = "["
         for i, topic in enumerate(topic_list):
-            topic_str += "\"%s\"" % topic.title
-            if i != len(topic_list) - 1:
-                topic_str += ","
-        topic_str += "]"
+            topic_titles.append(topic.title)
     else:
-        topic_str = "NULL"
+        topic_titles = "NULL"
 
-    json_text = "{\"data\":%s}" % topic_str
+    json_text = "{\"data\":{\"topic_list\":%s}}" % re.sub("\'", "\"", (topic_titles).__str__())
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_GET_TOPIC_LIST,
@@ -118,7 +117,7 @@ OP_SWITCH_TOPIC = 3
 
 
 def get_switch_topic_packet(topic_num):
-    json_text = "{\"data\":%d}" % topic_num
+    json_text = "{\"data\":{\"topic_i\":%d}}" % topic_num
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_SWITCH_TOPIC,
@@ -131,7 +130,7 @@ OP_DISC = 5
 
 
 def get_disc_packet(reason):
-    json_text = "{\"data\":\"%s\"}" % reason
+    json_text = "{\"data\":{\"reason\":\"%s\"}}" % reason
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_DISC,

@@ -50,17 +50,19 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
                 else:
                     send_packet = PacketProcessor.get_msg_packet(client_name=client.name, text=data["data"]["text"])
                     mutex.acquire()
+
+                    print("RESENDING TO CLIENTS IN %s TOPIC" % client.current_topic.title)
                     for other_client in client.current_topic.client_list:
-                        print("RESENDING TO CLIENTS IN %s TOPIC" % client.current_topic.title)
                         if other_client != client:
                             print("RESENDING TO %s" % other_client.name)
                             other_client.conn.send(send_packet)
                             client.current_topic.message_story.append(
-                                Message(text=data["data"], date=datetime.datetime.now(), client_name=client.name))
+                                Message(text=data["data"]["text"], date=datetime.datetime.now(),
+                                        client_name=client.name))
                     mutex.release()
 
         elif opcode == PacketProcessor.OP_NEW_TOPIC:
-            title = data["data"]
+            title = data["data"]["topic_name"]
             print("%s WANT TO CREATE NEW TOPIC %s" % (client.name, title))
             topic = Topic(title)
 
@@ -78,7 +80,7 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
             send_packet = PacketProcessor.get_topic_list_packet(topic_list)
 
         elif opcode == PacketProcessor.OP_SWITCH_TOPIC:
-            topic_i = data["data"]
+            topic_i = data["data"]["topic_i"]
             print("%s WANT TO SWITCH TOPIC TO %d" % (client.name, topic_i))
             if topic_i < len(topic_list):
 
