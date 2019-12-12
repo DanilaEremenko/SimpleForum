@@ -7,12 +7,13 @@ import datetime
 
 # ----------------------------------------------------------------
 def parse_packet(packet):
+    opcode = -1
     try:
         opcode = struct.unpack("!H", packet[0:2])[0]
         data = json.loads(str(packet[4:].decode(CommonConstants.CODING)))
 
     except:
-        print("PARSE_PACKET:BAD JSON OR OPCODE")
+        print("PARSE_PACKET:BAD JSON(OPCODE = %d\nJSON = %s" % (opcode, str(packet[4:].decode(CommonConstants.CODING))))
         opcode = OP_DISC
         data = {"data": {"reason": "BAD PARSING"}}
 
