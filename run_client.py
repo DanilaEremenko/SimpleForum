@@ -3,6 +3,7 @@ from lib import PacketProcessor
 import socket
 from threading import Thread
 import re
+import os
 
 
 def debug_print(text):
@@ -35,7 +36,7 @@ def write_loop(s, connected, name):
                             (topic_num, PacketProcessor.parse_packet(send_packet)[0]))
 
             elif splited_text[1] == 'exit':
-                send_packet = PacketProcessor.get_disc_packet()
+                send_packet = PacketProcessor.get_disc_packet("EXIT COMMAND GOT")
                 connected = False
                 debug_print("EXIT PACKET SENDING (OP = %d)" %
                             PacketProcessor.parse_packet(send_packet)[0])
@@ -49,7 +50,7 @@ def write_loop(s, connected, name):
 
         s.send(send_packet)
     print("\rDISCONNECTION IN WRITE LOOP")
-    exit(0)
+    os._exit(0)
 
 
 # ----------------------------------------------------------------
@@ -59,7 +60,10 @@ def read_loop(s, connected):
         opcode, data = PacketProcessor.parse_packet(rec_packet)
 
         if opcode == PacketProcessor.OP_MSG:
-            print("\r%s: %s" % (data["client_name"], data["data"]), flush=True)
+            print("\r%s: %s" % (data["data"]["client_name"], data["data"]["text"]), flush=True)
+
+        elif opcode == PacketProcessor.OP_SERVER_MSG:
+            print("\rSERVER: %s" % (data["data"]), flush=True)
 
         elif opcode == PacketProcessor.OP_MSG_LIST:
             for date, client, text in zip(data["data"]["date"], data["data"]["client"], data["data"]["text"]):
@@ -73,6 +77,7 @@ def read_loop(s, connected):
             print("------------------------------------------")
 
         elif opcode == PacketProcessor.OP_DISC:
+            print("RECEIVED OP_DISC FROM SERVER(%s)") % data["data"]
             connected = False
 
         else:
@@ -80,7 +85,7 @@ def read_loop(s, connected):
 
         print("Your message: ", end="", flush=True)
     print("\rDISCONNECTION IN READ LOOP")
-    exit(0)
+    os._exit(0)
 
 
 # ----------------------------------------------------------------
