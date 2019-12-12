@@ -56,10 +56,13 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
                         if other_client != client:
                             print("RESENDING TO %s" % other_client.name)
                             other_client.conn.send(send_packet)
-                            client.current_topic.message_story.append(
-                                Message(text=data["data"]["text"], date=datetime.datetime.now(),
-                                        client_name=client.name))
+
+                    client.current_topic.message_story.append(
+                        Message(text=data["data"]["text"],
+                                date=datetime.datetime.now(),
+                                client_name=client.name))
                     mutex.release()
+                    continue
 
         elif opcode == PacketProcessor.OP_NEW_TOPIC:
             title = data["data"]["topic_name"]
@@ -88,6 +91,11 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
                     print("CONNECTING AND SENDING LATS 10 CLIENTS")
                     send_packet = PacketProcessor.get_msg_list_packet(
                         message_list=get_last_from_topic_as_str(topic_list, topic_i))
+
+                    for topic in topic_list:
+                        if topic.client_list.__contains__(client):
+                            topic.client_list.remove(client)
+
                     client.current_topic = topic_list[topic_i]
                     topic_list[topic_i].client_list.append(client)
                 else:
