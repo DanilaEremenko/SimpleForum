@@ -1,11 +1,12 @@
-from lib.CommonConstants import BUFFER_SIZE
-from lib import PacketProcessor
+import colorama
+from datetime import datetime
+import os
+import re
 import socket
 from threading import Thread
-import re
-import os
-import datetime
-import colorama
+
+from lib.CommonConstants import BUFFER_SIZE
+from lib import PacketProcessor
 
 # ---------------------------- COLORS -----------------------------------
 COLOR_DATE = colorama.Fore.YELLOW
@@ -42,8 +43,8 @@ def topic_print_all(topic_dict):
     print("\r%s-------- TOPIC LIST FROM SERVER ---------" % colorama.Fore.MAGENTA)
     for topic_i, (topic_name, client_list) in enumerate(zip(topic_dict.keys(), topic_dict.values())):
         print("%s%d:%s%s" % (colorama.Fore.WHITE, topic_i, colorama.Fore.CYAN, topic_name))
-        for client_i, client in enumerate(client_list):
-            print("\t%s%d:%s%s" % (colorama.Fore.WHITE, client_i, colorama.Fore.CYAN, client))
+        for client_i, client_name in enumerate(client_list):
+            print("\t%s%d:%s%s" % (colorama.Fore.WHITE, client_i, colorama.Fore.BLUE, client_name))
 
     print("%s------------------------------------------" % colorama.Fore.MAGENTA)
 
@@ -55,7 +56,7 @@ def help_print():
 # ------------------------ WRITE --------------------------------
 def write_loop(s, connected, name):
     while connected:
-        msg_print(date=datetime.datetime.now().strftime("%Y-%m-%d-%H.%M.%S"), name="You", text="", end="")
+        msg_print(date=datetime.now().strftime("%Y-%m-%d-%H.%M.%S"), name="You", text="", end="")
         text = input()
 
         splited_text = re.sub(" +", " ", text).split(" ")
@@ -103,8 +104,7 @@ def write_loop(s, connected, name):
 # ------------------------- READ -------------------------------
 def read_loop(s, connected):
     while connected:
-        rec_packet = s.recv(BUFFER_SIZE)
-        opcode, data = PacketProcessor.parse_packet(rec_packet)
+        opcode, data = PacketProcessor.parse_packet(s.recv(BUFFER_SIZE))
 
         if opcode == PacketProcessor.OP_MSG:
             msg_print(date=data["data"]["date"], name=data["data"]["client_name"], text=data["data"]["text"])
@@ -113,8 +113,8 @@ def read_loop(s, connected):
             server_msg_print(date=data["data"]["date"], text=data["data"]["text"])
 
         elif opcode == PacketProcessor.OP_MSG_LIST:
-            for date, client, text in zip(data["data"]["date"], data["data"]["client"], data["data"]["text"]):
-                msg_print(date=date, name=client, text=text)
+            for date, client_name, text in zip(data["data"]["date"], data["data"]["client_name"], data["data"]["text"]):
+                msg_print(date=date, name=client_name, text=text)
 
         elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
             topic_print_all(data["data"]["topic_dict"])
@@ -127,7 +127,7 @@ def read_loop(s, connected):
         else:
             raise Exception("Undefined opcode = %d" % opcode)
 
-        msg_print(date=datetime.datetime.now().strftime("%Y-%m-%d-%H.%M.%S"), name="You", text="", end="")
+        msg_print(date=datetime.now().strftime("%Y-%m-%d-%H.%M.%S"), name="You", text="", end="")
     debug_print("\rDISCONNECTION IN READ LOOP")
     os._exit(0)
 
