@@ -7,6 +7,21 @@ import re
 import datetime
 import os
 
+
+# ---------------------------- CLIENT CLASS -----------------------------------
+class Client():
+    def __init__(self, conn, addr, name, thread):
+        self.conn = conn
+        self.addr = addr
+        self.name = name
+        self.is_connected = False
+        self.thread = thread
+        self.current_topic = None
+
+    def __str__(self):
+        return "%s" % self.name
+
+
 # ---------------------------- CMD -----------------------------------
 HELP_SERVER = "--------------------------\n" \
               "AVAILABLE SERVER COMMANDS:\n" \
@@ -53,21 +68,18 @@ def cmd_processing(client_list, topic_list):
         print("-------------------------")
 
 
-class Client():
-    def __init__(self, conn, addr, name, thread):
-        self.conn = conn
-        self.addr = addr
-        self.name = name
-        self.is_connected = False
-        self.thread = thread
-        self.current_topic = None
-
-    def __str__(self):
-        return "%s" % self.name
-
-
+# ---------------------------- client_processing -----------------------------------
 def debug_print(text):
     print("DEBUG:%s" % text)
+
+
+def get_last_from_topic_as_str(topic_list, topic_i):
+    result = []
+    if topic_i < len(topic_list):
+        for message in topic_list[topic_i].message_story[-10:]:
+            result.append(message)
+
+    return result
 
 
 def remove_client(reason, client, client_list: list):
@@ -76,8 +88,12 @@ def remove_client(reason, client, client_list: list):
     client.conn.send(send_packet)
     client.is_connected = False
     client_list.remove(client)
-    if client.current_topic.client_list is not None and client.current_topic.client_list.__contains__(client):
+
+    if client.current_topic is not None \
+            and client.current_topic.client_list is not None \
+            and client.current_topic.client_list.__contains__(client):
         client.current_topic.client_list.remove(client)
+
     client.conn.close()
 
 
@@ -91,8 +107,21 @@ def exit_server(client_list):
 
 
 def client_processing(client: Client, client_list: list, topic_list: list, mutex):
+    # ---------------------- getting name --------------------------------------
+    opcode, data = PacketProcessor.parse_packet(client.conn.recv(BUFFER_SIZE))
+    if opcode == PacketProcessor.OP_MSG:
+        client.name = data["data"]["client_name"]
+
+    else:
+        print("opcode = %d (%d awaiting)" % (opcode, PacketProcessor.OP_MSG))
+        send_packet = PacketProcessor.get_disc_packet("NO NAME MESSAGE SENDED")
+        client.conn.send(send_packet)
+        remove_client(reason="BAD OPCODE OF INIT MESSAGE", client=client, client_list=client_list)
+
     client.is_connected = True
     print("New client = %s(%d) accepted" % (client.name, client.conn.fileno()))
+
+    # -------------------- process client loop -----------------------------------
     while client.is_connected:
         opcode, data = PacketProcessor.parse_packet(client.conn.recv(BUFFER_SIZE))
 
@@ -180,15 +209,7 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
     print("DISCONNECTED:Client = %s" % client.name)
 
 
-def get_last_from_topic_as_str(topic_list, topic_i):
-    result = []
-    if topic_i < len(topic_list):
-        for message in topic_list[topic_i].message_story[-10:]:
-            result.append(message)
-
-    return result
-
-
+# ---------------------------- mock -----------------------------------
 def mock_topics(topic_list):
     for i in range(10):
         topic_list.append(Topic(title="topic_%d" % i))
@@ -219,24 +240,14 @@ def main():
     while True:
         # new clients accepting
         conn, addr = s.accept()
-        opcode, data = PacketProcessor.parse_packet(conn.recv(BUFFER_SIZE))
-        if opcode == PacketProcessor.OP_MSG:
-            name = data["data"]["client_name"]
-            new_client = Client(conn=conn, addr=addr, name=name, thread=None)
-            new_client.thread = Thread(target=client_processing,
-                                       args=(new_client, client_list, topic_list, mutex),
-                                       daemon=True)
-
-            mutex.acquire()
-            client_list.append(new_client)
-            mutex.release()
-
-            new_client.thread.start()
-
-        else:
-            print("opcode = %d (%d awaiting)" % (opcode, PacketProcessor.OP_MSG))
-            send_message = PacketProcessor.get_disc_packet("NO NAME MESSAGE SENDED")
-            conn.send(send_message)
+        new_client = Client(conn=conn, addr=addr, name="not initialized", thread=None)
+        new_client.thread = Thread(target=client_processing,
+                                   args=(new_client, client_list, topic_list, mutex),
+                                   daemon=True)
+        mutex.acquire()
+        client_list.append(new_client)
+        mutex.release()
+        new_client.thread.start()
 
 
 if __name__ == '__main__':

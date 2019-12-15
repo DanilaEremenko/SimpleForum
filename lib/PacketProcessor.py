@@ -39,7 +39,8 @@ OP_SERVER_MSG = 10
 
 
 def get_server_message_packet(text):
-    json_text = "{\"data\":{\"text\":\"%s\"}}" % (text)
+    json_text = "{\"data\":{\"text\":\"%s\", \"date\":\"%s\"}}" % \
+                (text, datetime.datetime.now().strftime("%Y-%m-%d-%H.%M.%S"))
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_SERVER_MSG,
