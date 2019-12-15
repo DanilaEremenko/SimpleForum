@@ -1,11 +1,13 @@
-from lib.CommonConstants import BUFFER_SIZE
-import socket
-from lib import PacketProcessor
-from threading import Thread, Lock
-from lib.ForumClasses import Topic, Message
-import re
-import datetime
+import colorama
+from datetime import datetime
 import os
+import re
+import socket
+from threading import Thread, Lock
+
+from lib.CommonConstants import BUFFER_SIZE
+from lib import PacketProcessor
+from lib.ForumClasses import Topic, Message
 
 
 # ---------------------------- CLIENT CLASS -----------------------------------
@@ -23,21 +25,20 @@ class Client():
 
 
 # ---------------------------- CMD -----------------------------------
-HELP_SERVER = "--------------------------\n" \
-              "AVAILABLE SERVER COMMANDS:\n" \
-              "list client\n" \
+HELP_SERVER = "%s------------ AVAILABLE SERVER COMMANDS ----------\n" \
+              "%slist client\n" \
               "list topic\n" \
               "listmsg topic_i:int\n" \
               "help\n" \
               "exit\n" \
-              "--------------------------\n"
+              "%s-------------------------------------------------\n" % (
+                  colorama.Fore.WHITE, colorama.Fore.GREEN, colorama.Fore.WHITE)
 
 
 def cmd_processing(client_list, topic_list):
     while True:
         command = re.sub(" +", " ", input())
         command_splited = command.split()
-        print("-------------------------")
         if command == "list client":
             for i, client in enumerate(client_list):
                 print("%d:%s" % (i, client.name))
@@ -65,12 +66,10 @@ def cmd_processing(client_list, topic_list):
         else:
             print("Undefined command = %s. Use help for information" % command)
 
-        print("-------------------------")
-
 
 # ---------------------------- client_processing -----------------------------------
 def debug_print(text):
-    print("DEBUG:%s" % text)
+    print("%sDEBUG:%s" % (colorama.Fore.RED, text))
 
 
 def get_last_from_topic_as_str(topic_list, topic_i):
@@ -148,7 +147,7 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
 
                     client.current_topic.message_story.append(
                         Message(text=data["data"]["text"],
-                                date=datetime.datetime.now(),
+                                date=datetime.now(),
                                 client_name=client.name))
                     mutex.release()
                     continue
@@ -215,7 +214,7 @@ def mock_topics(topic_list):
         topic_list.append(Topic(title="topic_%d" % i))
         for mi in range(10):
             topic_list[i].message_story.append(
-                Message(text="message_%d" % mi, date=datetime.datetime.now(), client_name="client_%d" % mi))
+                Message(text="message_%d" % mi, date=datetime.now(), client_name="client_%d" % mi))
 
 
 def main():
