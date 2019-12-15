@@ -4,26 +4,60 @@ import socket
 from threading import Thread
 import re
 import os
+import datetime
+import colorama
 
-# ---------------------------- CMD -----------------------------------
-HELP_CLIENT = "--------------------------\n" \
-              "AVAILABLE CLIENT COMMANDS:\n" \
-              "/put_topic name\n" \
+# ---------------------------- COLORS -----------------------------------
+COLOR_DATE = colorama.Fore.YELLOW
+COLOR_NAME = colorama.Fore.BLUE
+COLOR_TEXT = colorama.Fore.WHITE
+COLOR_DEBUG = colorama.Fore.RED
+COLOR_SERVER_NAME = colorama.Fore.RED
+
+# ---------------------------- HELP -----------------------------------
+HELP_CLIENT = "%s------- AVAILABLE CLIENT COMMANDS --------------\n" \
+              "%s/put_topic name\n" \
               "/get_topic_list\n" \
               "/switch_topic num\n" \
               "/help\n" \
               "/exit\n" \
-              "--------------------------\n"
+              "%s------------------------------------------------\n" % (
+                  colorama.Fore.MAGENTA, colorama.Fore.GREEN, colorama.Fore.MAGENTA)
 
 
+# ------------------------ PRINTS --------------------------
 def debug_print(text):
-    print("DEBUG:%s" % text)
+    print("%sDEBUG:%s" % (COLOR_DEBUG, text))
 
 
-# ----------------------------------------------------------------
+def msg_print(date, name, text, end="\n"):
+    print("\r%s[%s]:%s%s:%s%s " % (COLOR_DATE, date, COLOR_NAME, name, COLOR_TEXT, text), end=end)
+
+
+def server_msg_print(date, text, end="\n"):
+    print("\r%s[%s]:%sSERVER:%s%s " % (COLOR_DATE, date, COLOR_SERVER_NAME, COLOR_TEXT, text), end=end)
+
+
+def topic_print_all(topic_dict):
+    print("\r%s-------- TOPIC LIST FROM SERVER ---------" % colorama.Fore.MAGENTA)
+    for topic_i, (topic_name, client_list) in enumerate(zip(topic_dict.keys(), topic_dict.values())):
+        print("%s%d:%s%s" % (colorama.Fore.WHITE, topic_i, colorama.Fore.CYAN, topic_name))
+        for client_i, client in enumerate(client_list):
+            print("\t%s%d:%s%s" % (colorama.Fore.WHITE, client_i, colorama.Fore.CYAN, client))
+
+    print("%s------------------------------------------" % colorama.Fore.MAGENTA)
+
+
+def help_print():
+    print(HELP_CLIENT)
+
+
+# ------------------------ WRITE --------------------------------
 def write_loop(s, connected, name):
     while connected:
-        text = input("Your message: ")
+        msg_print(date=datetime.datetime.now().strftime("%Y-%m-%d-%H.%M.%S"), name="You", text="", end="")
+        text = input()
+
         splited_text = re.sub(" +", " ", text).split(" ")
 
         if text == "":  # don't send empty message
@@ -45,7 +79,7 @@ def write_loop(s, connected, name):
                 debug_print("TRYING TO SWITCH TOPIC TO %d (OP = %d)" %
                             (topic_num, PacketProcessor.parse_packet(send_packet)[0]))
             elif splited_text[0] == "/help":
-                print(HELP_CLIENT)
+                help_print()
                 continue
 
             elif splited_text[0] == '/exit':
@@ -62,46 +96,39 @@ def write_loop(s, connected, name):
             send_packet = PacketProcessor.get_msg_packet(client_name=name, text=text)
 
         s.send(send_packet)
-    print("\rDISCONNECTION IN WRITE LOOP")
+    debug_print("\rDISCONNECTION IN WRITE LOOP")
     os._exit(0)
 
 
-# ----------------------------------------------------------------
+# ------------------------- READ -------------------------------
 def read_loop(s, connected):
     while connected:
         rec_packet = s.recv(BUFFER_SIZE)
         opcode, data = PacketProcessor.parse_packet(rec_packet)
 
         if opcode == PacketProcessor.OP_MSG:
-            print("\r[%s]:%s: %s" % (data["data"]["date"], data["data"]["client_name"], data["data"]["text"]),
-                  flush=True)
+            msg_print(date=data["data"]["date"], name=data["data"]["client_name"], text=data["data"]["text"])
 
         elif opcode == PacketProcessor.OP_SERVER_MSG:
-            print("\rSERVER: %s" % (data["data"]["text"]), flush=True)
+            server_msg_print(date=data["data"]["date"], text=data["data"]["text"])
 
         elif opcode == PacketProcessor.OP_MSG_LIST:
             for date, client, text in zip(data["data"]["date"], data["data"]["client"], data["data"]["text"]):
-                print("\r[%s]:%s: %s" % (date, client, text), flush=True)
+                msg_print(date=date, name=client, text=text)
 
         elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
-            print("\r-------- TOPIC LIST FROM SERVER---------")
-            for topic_i, (topic_name, client_list) in \
-                    enumerate(zip(data["data"]["topic_dict"].keys(), data["data"]["topic_dict"].values())):
-                print("%d:%s" % (topic_i, topic_name))
-                for client_i, client in enumerate(client_list):
-                    print("\t%d:%s" % (client_i, client))
-
-            print("------------------------------------------")
+            topic_print_all(data["data"]["topic_dict"])
 
         elif opcode == PacketProcessor.OP_DISC:
-            print("RECEIVED OP_DISC FROM SERVER(%s)" % data["data"]["reason"])
+            debug_print("RECEIVED OP_DISC FROM SERVER(%s)" % data["data"]["reason"])
             connected = False
+            continue
 
         else:
             raise Exception("Undefined opcode = %d" % opcode)
 
-        print("Your message: ", end="", flush=True)
-    print("\rDISCONNECTION IN READ LOOP")
+        msg_print(date=datetime.datetime.now().strftime("%Y-%m-%d-%H.%M.%S"), name="You", text="", end="")
+    debug_print("\rDISCONNECTION IN READ LOOP")
     os._exit(0)
 
 
@@ -117,6 +144,8 @@ def main():
     name = input("Print your name: ")
     send_packet = PacketProcessor.get_msg_packet(client_name=name, text=name)
     s.send(send_packet)
+
+    help_print()
 
     connected = True
     # using threads
