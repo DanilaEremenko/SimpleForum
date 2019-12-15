@@ -1,8 +1,9 @@
-from lib import CommonConstants
+from datetime import datetime
+import re
 import struct
 import json
-import re
-import datetime
+
+from lib import CommonConstants
 
 
 # ----------------------------------------------------------------
@@ -26,7 +27,7 @@ OP_MSG = 0
 
 def get_msg_packet(client_name, text):
     json_text = "{\"data\":{\"client_name\":\"%s\",\"text\":\"%s\",\"date\":\"%s\"}}" % (
-        client_name, text, datetime.datetime.now().strftime("%Y-%m-%d-%H.%M.%S"))
+        client_name, text, datetime.now().strftime("%Y-%m-%d-%H.%M.%S"))
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_MSG,
@@ -40,7 +41,7 @@ OP_SERVER_MSG = 10
 
 def get_server_message_packet(text):
     json_text = "{\"data\":{\"text\":\"%s\", \"date\":\"%s\"}}" % \
-                (text, datetime.datetime.now().strftime("%Y-%m-%d-%H.%M.%S"))
+                (text, datetime.now().strftime("%Y-%m-%d-%H.%M.%S"))
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_SERVER_MSG,
@@ -58,9 +59,9 @@ def get_msg_list_packet(message_list):
     :param text:
     :return:
     """
-    data = {"client": [], "date": [], "text": []}
+    data = {"client_name": [], "date": [], "text": []}
     for message in message_list:
-        data["client"].append(message.client_name)
+        data["client_name"].append(message.client_name)
         data["date"].append(message.date.strftime("%Y-%m-%d-%H.%M.%S"))
         data["text"].append(message.text)
 
