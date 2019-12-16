@@ -9,6 +9,17 @@ from lib.CommonConstants import BUFFER_SIZE
 from lib import PacketProcessor
 from lib.ForumClasses import Topic, Message
 
+# ------------------------------ COLORS -----------------------------------
+COLOR_DATE = colorama.Fore.YELLOW
+COLOR_NAME = colorama.Fore.BLUE
+COLOR_TEXT = colorama.Fore.WHITE
+COLOR_DEBUG = colorama.Fore.RED
+COLOR_SERVER_NAME = colorama.Fore.RED
+COLOR_TOPIC_NAME = colorama.Fore.CYAN
+COLOR_DIV_LINES = colorama.Fore.MAGENTA
+COLOR_COMMAND = colorama.Fore.GREEN
+COLOR_INDEX = colorama.Fore.WHITE
+
 
 # ---------------------------- CLIENT CLASS -----------------------------------
 class Client():
@@ -31,8 +42,8 @@ HELP_SERVER = "%s------------ AVAILABLE SERVER COMMANDS ----------\n" \
               "listmsg topic_i:int\n" \
               "help\n" \
               "exit\n" \
-              "%s-------------------------------------------------\n" % (
-                  colorama.Fore.WHITE, colorama.Fore.GREEN, colorama.Fore.WHITE)
+              "%s-------------------------------------------------\n%s" % (
+                  COLOR_DIV_LINES, COLOR_COMMAND, COLOR_DIV_LINES, colorama.Fore.RESET)
 
 
 def cmd_processing(client_list, topic_list):
@@ -47,15 +58,21 @@ def cmd_processing(client_list, topic_list):
             topic_dict = PacketProcessor.get_topic_dict(topic_list)
             for topic_i, (topic_name, client_list) in \
                     enumerate(zip(topic_dict.keys(), topic_dict.values())):
-                print("%d:%s" % (topic_i, topic_name))
+                print("%s%d:%s%s" % (COLOR_INDEX, topic_i, COLOR_TOPIC_NAME, topic_name))
                 for client_i, client in enumerate(client_list):
-                    print("\t%d:%s" % (client_i, client))
+                    print("\t%s%d:%s%s" % (COLOR_INDEX, client_i, COLOR_NAME, client))
+
+            print(colorama.Fore.RESET)
 
 
         elif len(command_splited) >= 2 and command_splited[0] == "listmsg":  # print last 10 message
             topic_i = int(command_splited[1])
             for message in get_last_from_topic_as_str(topic_list, topic_i):
-                print("[%s]:%s:%s\n" % (message.date.strftime("%Y-%m-%d-%H.%M.%S"), message.client_name, message.text))
+                print("%s[%s]:%s%s:%s%s" %
+                      (COLOR_DATE, message.date.strftime("%Y-%m-%d-%H.%M.%S"),
+                       COLOR_NAME, message.client_name,
+                       COLOR_TEXT, message.text))
+            print(colorama.Fore.RESET)
 
         elif command == "help":
             print(HELP_SERVER)
