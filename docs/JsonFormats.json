@@ -1,0 +1,57 @@
+//OP_MSG
+{
+  "data": {
+    "client_name": str,
+    "text": str,
+    "date": str
+  }
+}
+
+//OP_SERVER_MSG
+{
+  "data": {
+    "text": str,
+    "date": str
+  }
+}
+
+//OP_MSG_LIST
+{
+  "data": {
+    "client_name": [],
+    "date": [],
+    "text": []
+  }
+}
+
+//OP_NEW_TOPIC
+{
+  "data": {
+    "topic_name": str
+  }
+}
+
+//OP_GET_TOPIC_LIST
+{
+  "data": {
+    "topic_dict": {
+      "topic_title_1": [],
+      "topic_title_2": [],
+      ...
+    }
+  }
+}
+
+//OP_SWITCH_TOPIC
+{
+  "data": {
+    "topic_i": int
+  }
+}
+
+//OP_DISC
+{
+  "data": {
+    "reason": str
+  }
+}
