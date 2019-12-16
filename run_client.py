@@ -15,6 +15,10 @@ COLOR_NAME = colorama.Fore.BLUE
 COLOR_TEXT = colorama.Fore.WHITE
 COLOR_DEBUG = colorama.Fore.RED
 COLOR_SERVER_NAME = colorama.Fore.RED
+COLOR_TOPIC_NAME = colorama.Fore.CYAN
+COLOR_DIV_LINES = colorama.Fore.MAGENTA
+COLOR_COMMAND = colorama.Fore.GREEN
+COLOR_INDEX = colorama.Fore.WHITE
 
 # ---------------------------- HELP -----------------------------------
 HELP_CLIENT = "%s------- AVAILABLE CLIENT COMMANDS --------------\n" \
@@ -23,8 +27,8 @@ HELP_CLIENT = "%s------- AVAILABLE CLIENT COMMANDS --------------\n" \
               "/switch_topic num\n" \
               "/help\n" \
               "/exit\n" \
-              "%s------------------------------------------------\n" % (
-                  colorama.Fore.MAGENTA, colorama.Fore.GREEN, colorama.Fore.MAGENTA)
+              "%s------------------------------------------------\n%s" % \
+              (COLOR_DIV_LINES, COLOR_COMMAND, COLOR_DIV_LINES, colorama.Fore.RESET)
 
 
 # ------------------------ PRINTS --------------------------
@@ -41,13 +45,13 @@ def server_msg_print(date, text, end="\n"):
 
 
 def topic_print_all(topic_dict):
-    print("\r%s-------- TOPIC LIST FROM SERVER ---------" % colorama.Fore.MAGENTA)
+    print("\r%s-------- TOPIC LIST FROM SERVER ---------" % COLOR_DIV_LINES)
     for topic_i, (topic_name, client_list) in enumerate(zip(topic_dict.keys(), topic_dict.values())):
-        print("%s%d:%s%s" % (colorama.Fore.WHITE, topic_i, colorama.Fore.CYAN, topic_name))
+        print("%s%d:%s%s" % (COLOR_INDEX, topic_i, COLOR_TOPIC_NAME, topic_name))
         for client_i, client_name in enumerate(client_list):
-            print("\t%s%d:%s%s" % (colorama.Fore.WHITE, client_i, colorama.Fore.BLUE, client_name))
+            print("\t%s%d:%s%s" % (COLOR_INDEX, client_i, COLOR_NAME, client_name))
 
-    print("%s------------------------------------------" % colorama.Fore.MAGENTA)
+    print("%s------------------------------------------" % COLOR_DIV_LINES)
 
 
 def help_print():
