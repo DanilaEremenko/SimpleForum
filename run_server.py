@@ -3,11 +3,11 @@ from datetime import datetime
 import os
 import re
 import socket
-from threading import Thread, Lock
+from threading import Thread
 
 from lib.CommonConstants import BUFFER_SIZE
 from lib import PacketProcessor
-from lib.ForumClasses import Topic, Message
+from lib.ForumClasses import Topic, Message, DataContainer, Client
 
 # ------------------------------ COLORS -----------------------------------
 COLOR_DATE = colorama.Fore.YELLOW
@@ -20,20 +20,9 @@ COLOR_DIV_LINES = colorama.Fore.MAGENTA
 COLOR_COMMAND = colorama.Fore.GREEN
 COLOR_INDEX = colorama.Fore.WHITE
 
-
-# ---------------------------- CLIENT CLASS -----------------------------------
-class Client():
-    def __init__(self, conn, addr, name, thread):
-        self.conn = conn
-        self.addr = addr
-        self.name = name
-        self.is_connected = False
-        self.thread = thread
-        self.current_topic = None
-
-    def __str__(self):
-        return "%s" % self.name
-
+# ------------------------------ CAPACITY CONSTANTS ----------------------------
+MAX_MSG_IN_TOPIC = 50
+MSG_FROM_TOPIC_NUM = 10
 
 # ---------------------------- CMD -----------------------------------
 HELP_SERVER = "%s------------ AVAILABLE SERVER COMMANDS ----------\n" \
@@ -46,16 +35,21 @@ HELP_SERVER = "%s------------ AVAILABLE SERVER COMMANDS ----------\n" \
                   COLOR_DIV_LINES, COLOR_COMMAND, COLOR_DIV_LINES, colorama.Fore.RESET)
 
 
-def cmd_processing(client_list, topic_list):
+def debug_print(text):
+    print("%sDEBUG:%s" % (colorama.Fore.RED, text))
+
+
+# ---------------------------------- CMD INPUT  ----------------------------------------------
+def cmd_processing(dc: DataContainer):
     while True:
         command = re.sub(" +", " ", input())
         command_splited = command.split()
         if command == "list client":
-            for i, client in enumerate(client_list):
-                print("%d:%s" % (i, client.name))
+            for i, client in enumerate(dc.client_list):
+                print("%s%d:%s%s%s" % (COLOR_INDEX, i, COLOR_NAME, client.name, colorama.Fore.RESET))
 
         elif command == "list topic":
-            topic_dict = PacketProcessor.get_topic_dict(topic_list)
+            topic_dict = PacketProcessor.get_topic_dict(dc.topic_list)
             for topic_i, (topic_name, client_list) in \
                     enumerate(zip(topic_dict.keys(), topic_dict.values())):
                 print("%s%d:%s%s" % (COLOR_INDEX, topic_i, COLOR_TOPIC_NAME, topic_name))
@@ -66,8 +60,11 @@ def cmd_processing(client_list, topic_list):
 
 
         elif len(command_splited) >= 2 and command_splited[0] == "listmsg":  # print last 10 message
-            topic_i = int(command_splited[1])
-            for message in get_last_from_topic_as_str(topic_list, topic_i):
+            try:
+                topic_i = int(command_splited[1])
+            except:
+                continue
+            for message in dc.get_last_topic_msgs(topic_i, MSG_FROM_TOPIC_NUM):
                 print("%s[%s]:%s%s:%s%s" %
                       (COLOR_DATE, message.date.strftime("%Y-%m-%d-%H.%M.%S"),
                        COLOR_NAME, message.client_name,
@@ -78,51 +75,14 @@ def cmd_processing(client_list, topic_list):
             print(HELP_SERVER)
 
         elif command == "exit":
-            exit_server(client_list)
+            exit_server(dc)
 
         else:
             print("Undefined command = %s. Use help for information" % command)
 
 
 # ---------------------------- client_processing -----------------------------------
-def debug_print(text):
-    print("%sDEBUG:%s" % (colorama.Fore.RED, text))
-
-
-def get_last_from_topic_as_str(topic_list, topic_i):
-    result = []
-    if topic_i < len(topic_list):
-        for message in topic_list[topic_i].message_story[-10:]:
-            result.append(message)
-
-    return result
-
-
-def remove_client(reason, client, client_list: list):
-    print("DISCONNECTING:Client = %s (%s)" % (client.name, reason))
-    send_packet = PacketProcessor.get_disc_packet(reason)
-    client.conn.send(send_packet)
-    client.is_connected = False
-    client_list.remove(client)
-
-    if client.current_topic is not None \
-            and client.current_topic.client_list is not None \
-            and client.current_topic.client_list.__contains__(client):
-        client.current_topic.client_list.remove(client)
-
-    client.conn.close()
-
-
-def exit_server(client_list):
-    print("CLIENTS DELETING")
-    for client in client_list:
-        remove_client(reason="server closed", client=client, client_list=client_list)
-
-    print("SERVER EXITING")
-    os._exit(0)
-
-
-def client_processing(client: Client, client_list: list, topic_list: list, mutex):
+def client_processing(client: Client, dc: DataContainer):
     # ---------------------- getting name --------------------------------------
     opcode, data = PacketProcessor.parse_packet(client.conn.recv(BUFFER_SIZE))
     if opcode == PacketProcessor.OP_MSG:
@@ -132,7 +92,7 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
         print("opcode = %d (%d awaiting)" % (opcode, PacketProcessor.OP_MSG))
         send_packet = PacketProcessor.get_disc_packet("NO NAME MESSAGE SENDED")
         client.conn.send(send_packet)
-        remove_client(reason="BAD OPCODE OF INIT MESSAGE", client=client, client_list=client_list)
+        dc.remove_client(reason="BAD OPCODE OF INIT MESSAGE", client=client)
 
     client.is_connected = True
     print("New client = %s(%d) accepted" % (client.name, client.conn.fileno()))
@@ -144,7 +104,7 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
         if opcode == PacketProcessor.OP_MSG:
 
             if not data or data == '':
-                remove_client("BAD MESSAGE", client, client_list)
+                dc.remove_client(reason="BAD MESSAGE", client=client)
                 break
 
             else:
@@ -154,7 +114,7 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
                     send_packet = PacketProcessor.get_server_message_packet(text="NO ONE TOPIC CHOOSED")
                 else:
                     send_packet = PacketProcessor.get_msg_packet(client_name=client.name, text=data["data"]["text"])
-                    mutex.acquire()
+                    dc.mutex.acquire()
 
                     print("RESENDING TO CLIENTS IN %s TOPIC" % client.current_topic.title)
                     for other_client in client.current_topic.client_list:
@@ -166,7 +126,9 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
                         Message(text=data["data"]["text"],
                                 date=datetime.now(),
                                 client_name=client.name))
-                    mutex.release()
+                    if len(client.current_topic.message_story) >= MAX_MSG_IN_TOPIC:
+                        del client.current_topic.message_story[MAX_MSG_IN_TOPIC:]
+                    dc.mutex.release()
                     continue
 
         elif opcode == PacketProcessor.OP_NEW_TOPIC:
@@ -174,9 +136,9 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
             print("%s WANT TO CREATE NEW TOPIC %s" % (client.name, title))
             topic = Topic(title)
 
-            if not topic_list.__contains__(topic):
+            if not topic in dc.topic_list:
                 print("NEW TOPIC %s ADDED" % title)
-                topic_list.append(topic)
+                dc.topic_list.append(topic)
                 send_packet = PacketProcessor.get_server_message_packet(text="topic %s created" % title)
 
             else:
@@ -185,24 +147,24 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
 
         elif opcode == PacketProcessor.OP_GET_TOPIC_LIST:
             print("%s WANT TO GET TOPIC LIST" % (client.name))
-            send_packet = PacketProcessor.get_topic_list_packet(topic_list)
+            send_packet = PacketProcessor.get_topic_list_packet(dc.topic_list)
 
         elif opcode == PacketProcessor.OP_SWITCH_TOPIC:
             topic_i = data["data"]["topic_i"]
             print("%s WANT TO SWITCH TOPIC TO %d" % (client.name, topic_i))
-            if topic_i < len(topic_list):
+            if topic_i < len(dc.topic_list):
 
-                if not topic_list[topic_i].client_list.__contains__(client):
+                if not client in dc.topic_list[topic_i].client_list:
                     print("CONNECTING AND SENDING LATS 10 CLIENTS")
                     send_packet = PacketProcessor.get_msg_list_packet(
-                        message_list=get_last_from_topic_as_str(topic_list, topic_i))
+                        message_list=dc.get_last_topic_msgs(topic_i, MSG_FROM_TOPIC_NUM))
 
-                    for topic in topic_list:
+                    for topic in dc.topic_list:
                         if topic.client_list.__contains__(client):
                             topic.client_list.remove(client)
 
-                    client.current_topic = topic_list[topic_i]
-                    topic_list[topic_i].client_list.append(client)
+                    client.current_topic = dc.topic_list[topic_i]
+                    dc.topic_list[topic_i].client_list.append(client)
                 else:
                     print("SENDING SORRY MESSAGE")
                     send_packet = PacketProcessor.get_server_message_packet(
@@ -214,7 +176,7 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
 
 
         elif opcode == PacketProcessor.OP_DISC:
-            remove_client("DISCONNECTION OPCODE == %d" % opcode, client, client_list)
+            dc.remove_client(reason="DISCONNECTION OPCODE == %d" % opcode, client=client)
             break
 
         else:
@@ -225,19 +187,17 @@ def client_processing(client: Client, client_list: list, topic_list: list, mutex
     print("DISCONNECTED:Client = %s" % client.name)
 
 
-# ---------------------------- mock -----------------------------------
-def mock_topics(topic_list):
-    for i in range(10):
-        topic_list.append(Topic(title="topic_%d" % i))
-        for mi in range(10):
-            topic_list[i].message_story.append(
-                Message(text="message_%d" % mi, date=datetime.now(), client_name="client_%d" % mi))
+# ---------------------------------- EXIT----------------------------------
+def exit_server(dc: DataContainer):
+    dc.remove_all_clients()
+    print("SERVER EXITING")
+    os._exit(0)
 
 
+# ---------------------------------- MAIN ----------------------------------
 def main():
-    client_list = []
-    topic_list = []
-    mock_topics(topic_list)
+    dc = DataContainer()
+    dc.mock_topics()
 
     TCP_IP = 'localhost'
     TCP_PORT = 5005
@@ -247,10 +207,8 @@ def main():
     s.bind((TCP_IP, TCP_PORT))
     s.listen(1)
 
-    mutex = Lock()
-
     # running cmd thread
-    cmd_thread = Thread(target=cmd_processing, args=(client_list, topic_list), daemon=True)
+    cmd_thread = Thread(target=cmd_processing, args=(dc,), daemon=True)
     cmd_thread.start()
 
     while True:
@@ -258,11 +216,11 @@ def main():
         conn, addr = s.accept()
         new_client = Client(conn=conn, addr=addr, name="not initialized", thread=None)
         new_client.thread = Thread(target=client_processing,
-                                   args=(new_client, client_list, topic_list, mutex),
+                                   args=(new_client, dc),
                                    daemon=True)
-        mutex.acquire()
-        client_list.append(new_client)
-        mutex.release()
+        dc.mutex.acquire()
+        dc.client_list.append(new_client)
+        dc.mutex.release()
         new_client.thread.start()
 
 
