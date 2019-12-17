@@ -26,8 +26,8 @@ OP_MSG = 0
 
 
 def get_msg_packet(client_name, text):
-    json_text = "{\"data\":{\"client_name\":\"%s\",\"text\":\"%s\",\"date\":\"%s\"}}" % (
-        client_name, text, datetime.now().strftime("%Y-%m-%d-%H.%M.%S"))
+    json_text = json.dumps(
+        {"data": {"client_name": client_name, "text": text, "date": datetime.now().strftime("%Y-%m-%d-%H.%M.%S")}})
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_MSG,
@@ -40,8 +40,7 @@ OP_SERVER_MSG = 10
 
 
 def get_server_message_packet(text):
-    json_text = "{\"data\":{\"text\":\"%s\", \"date\":\"%s\"}}" % \
-                (text, datetime.now().strftime("%Y-%m-%d-%H.%M.%S"))
+    json_text = json.dumps({"data": {"text": text, "date": datetime.now().strftime("%Y-%m-%d-%H.%M.%S")}})
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_SERVER_MSG,
@@ -65,7 +64,7 @@ def get_msg_list_packet(message_list):
         data["date"].append(message.date.strftime("%Y-%m-%d-%H.%M.%S"))
         data["text"].append(message.text)
 
-    json_text = "{\"data\" : %s}" % re.sub("\'", "\"", (data).__str__())
+    json_text = json.dumps({"data": data})
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_MSG_LIST,
@@ -78,7 +77,7 @@ OP_NEW_TOPIC = 2
 
 
 def get_new_topic_packet(topic_name):
-    json_text = "{\"data\":{\"topic_name\":\"%s\"}}" % topic_name
+    json_text = json.dumps({"data": {"topic_name": topic_name}})
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_NEW_TOPIC,
@@ -91,7 +90,7 @@ OP_GET_TOPIC_LIST = 4
 
 
 def get_topic_list_request_packet():
-    json_text = "{\"data\":{\"empty\":\"empty\"}}"
+    json_text = json.dumps({"data": {"empty": "empty"}})
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_GET_TOPIC_LIST,
@@ -112,7 +111,7 @@ def get_topic_dict(topic_list: list):
 
 def get_topic_list_packet(topic_list: list):
     topic_dict = get_topic_dict(topic_list)
-    json_text = "{\"data\":{\"topic_dict\":%s}}" % re.sub("\'", "\"", (topic_dict).__str__())
+    json_text = json.dumps({"data": {"topic_dict": topic_dict}})
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_GET_TOPIC_LIST,
@@ -125,7 +124,7 @@ OP_SWITCH_TOPIC = 3
 
 
 def get_switch_topic_packet(topic_num):
-    json_text = "{\"data\":{\"topic_i\":%d}}" % topic_num
+    json_text = json.dumps({"data": {"topic_i": topic_num}})
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_SWITCH_TOPIC,
@@ -138,7 +137,7 @@ OP_DISC = 5
 
 
 def get_disc_packet(reason):
-    json_text = "{\"data\":{\"reason\":\"%s\"}}" % reason
+    json_text = json.dumps({"data": {"reason": reason}})
     send_format = "!2H%ds" % len(json_text)
     return struct.pack(send_format.encode(),
                        OP_DISC,
