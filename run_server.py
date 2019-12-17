@@ -1,3 +1,5 @@
+import argparse
+
 import colorama
 from datetime import datetime
 import os
@@ -198,10 +200,26 @@ def exit_server(dc: DataContainer):
 def main():
     dc = DataContainer()
     dc.mock_topics()
+    # ---------------- parsing arguments --------------------------
+    parser = argparse.ArgumentParser(description="Client for SimpleForum")
 
-    TCP_IP = 'localhost'
-    TCP_PORT = 5005
+    parser.add_argument("-i", "--ip", type=str, action='store',
+                        help="direcotry with data")
 
+    parser.add_argument("-p", "--port", type=int, action='store',
+                        help="port")
+
+    args = parser.parse_args()
+
+    TCP_IP = args.ip
+    TCP_PORT = args.port
+
+    if TCP_IP is None:
+        raise Exception("-i ip of server was't passed")
+    if TCP_PORT is None:
+        raise Exception("-p port was't passed ")
+
+    # ---------------- configuration --------------------------
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     s.bind((TCP_IP, TCP_PORT))
